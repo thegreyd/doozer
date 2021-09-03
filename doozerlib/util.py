@@ -350,6 +350,54 @@ def get_cincinnati_channels(major, minor):
     return [f'{prefix}-{major}.{minor}' for prefix in prefixes]
 
 
+def get_channel_versions(channel,
+                         arch = 'x86_64',
+                         graph_url = 'https://api.openshift.com/api/upgrades_info/v1/graph',
+                         graph_content_stable = None,
+                         graph_content_candidate = None):
+    """
+    Queries Cincinnati and returns a tuple containing:
+    1. All of the versions in the specified channel in decending order (e.g. 4.6.26, ... ,4.6.1)
+    2. A map of the edges associated with each version (e.g. map['4.6.1'] -> [ '4.6.2', '4.6.3', ... ]
+    :param channel: The name of the channel to inspect
+    :return: (versions, edge_map)
+    """
+    content = None
+
+    if channel == 'stable' and graph_content_stable:
+        # permit override
+        with open(graph_content_stable, 'r') as f:
+            content = f.read()
+
+    if channel != 'stable' and graph_content_candidate:
+        # permit override
+        with open(graph_content_candidate, 'r') as f:
+            content = f.read()
+
+    if not content:
+        url = f'{graph_url}?arch={arch}&channel={channel}'
+        req = urllib.request.Request(url)
+        req.add_header('Accept', 'application/json')
+        content = exectools.urlopen_assert(req).read()
+
+    graph = json.loads(content)
+    versions = [node['version'] for node in graph['nodes']]
+    descending_versions = sort_semver(versions)
+
+    edges: Dict[str, List] = dict()
+    for v in versions:
+        # Ensure there is at least an empty list for all versions.
+        edges[v] = []
+
+    for edge_def in graph['edges']:
+        # edge_def example [22, 20] where is number is an offset into versions
+        from_ver = versions[edge_def[0]]
+        to_ver = versions[edge_def[1]]
+        edges[from_ver].append(to_ver)
+
+    return descending_versions, edges
+
+
 def get_docker_config_json(config_dir):
     flist = os.listdir(abspath(config_dir))
     if 'config.json' in flist:
