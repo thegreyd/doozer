@@ -155,7 +155,7 @@ def gen_assembly_from_releases(ctx, runtime: Runtime, nightlies: Tuple[str, ...]
                 if build_nvr != existing_nvr:
                     red_print(f'Found disparate nvrs between releases; {existing_nvr} in {processed_arches} and {build_nvr} in'
                               f' {pullspec}')
-                    nvr_diff_map[processed_arches] = existing_nvr
+                    nvr_diff_map[','.join(processed_arches)] = existing_nvr
                     nvr_diff_map[pullspec] = build_nvr
             else:
                 # Otherwise, record the build as the first time we've seen an NVR for this
